@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install Annocode 1.0.0 Skills for one project or the current user."""
+"""Install Annocode 1.1.0 Skills for one project or the current user."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import argparse
 import shutil
 from pathlib import Path
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 SKILL_PREFIX = "annocode-"
 
 

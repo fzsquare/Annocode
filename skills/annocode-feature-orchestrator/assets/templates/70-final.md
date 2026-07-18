@@ -10,7 +10,9 @@ TBD
 ## Role handoffs
 
 - Planner: PENDING
+- Planner user approval: PENDING
 - Annotator: PENDING
+- Annotator user approval: PENDING
 - Implementers: PENDING
 - Integration: PENDING
 - Tester: PENDING

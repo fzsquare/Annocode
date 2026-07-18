@@ -13,3 +13,7 @@
 ## First executable wave
 ## Risks and open decisions
 ## Inputs for next role
+
+## Orchestrator user-summary inputs
+
+Provide concise facts for the mandatory user confirmation summary. Do not mark or infer user approval here.

@@ -1,10 +1,10 @@
 # Annocode
 
-**Version 1.0.0**
+**Version 1.1.0**
 
 Annocode 是一套面向 Codex 的干净上下文多 Agent 编程工作流。它将复杂需求拆分为规划、源码标注、实现、集成、测试和验收等独立职能，并要求每个职能在新的 Agent 上下文中执行。
 
-主 Agent 只负责编排。各职能 Agent 不共享长聊天历史，而是通过 Annocode 工作区中的 Markdown 文件传递需求、任务契约、实现结果和验证证据。
+主 Agent 只负责编排。各职能 Agent 不共享长聊天历史，而是通过 Annocode 工作区中的 Markdown 文件传递需求、任务契约、实现结果和验证证据。Planner 和 Annotator 完成后，流程会强制暂停，由主 Agent 向用户展示结构化总结，并在取得明确人工确认后才进入下一阶段。
 
 ## 概览
 
@@ -13,6 +13,8 @@ Annocode 是一套面向 Codex 的干净上下文多 Agent 编程工作流。它
 - 隔离不同职能的上下文，减少长上下文污染。
 - 让规划、实现、测试和验收保持职责独立。
 - 支持主 Agent 自动创建职能子 Agent。
+- 在 Planner 和 Annotator 完成后设置强制人工确认门禁。
+- 将用户的批准、修改请求或拒绝按阶段和 attempt 写入追加式审计日志。
 - 支持用户在独立 Codex 任务中手动创建职能 Agent。
 - 通过 Requirement-ID 连接不同线程和 Agent。
 - 通过文件交接保存可审查、可恢复的工程状态。
@@ -34,7 +36,7 @@ Annocode 是一套面向 Codex 的干净上下文多 Agent 编程工作流。它
 
 | Skill | 职能 | 上下文 |
 |---|---|---|
-| annocode-feature-orchestrator | 初始化需求、调度角色、读取交接状态、安排返工、向用户汇报 | 主 Agent |
+| annocode-feature-orchestrator | 初始化需求、调度角色、展示 Planner/Annotator 总结、记录用户确认、安排返工并向用户汇报 | 主 Agent |
 | annocode-change-planner | 分析需求与代码库，生成验收标准、影响范围、任务 DAG 和文件所有权 | 独立 Planner Agent |
 | annocode-source-annotator | 将任务映射到准确源码位置，并在验收后清理临时标注 | 独立 Annotator Agent |
 | annocode-task-implementer | 完成一个任务和一次 attempt 的代码及测试代码 | 独立 Implementer Agent |
@@ -67,6 +69,14 @@ attempt: A1
 
 角色之间传递简洁的决策、契约、证据、风险和阻塞，不传递长聊天记录或隐藏推理过程。
 
+#### Planner 和 Annotator 必须由用户授权
+
+Planner handoff 达到 `COMPLETE` 后，Orchestrator 必须展示需求理解、验收标准、任务 DAG、文件所有权、风险和开放决策，并将状态设为 `WAITING_FOR_PLANNER_APPROVAL`。只有用户明确确认当前 Planner attempt，才允许创建 Annotator。
+
+Annotator handoff 达到 `COMPLETE` 后，Orchestrator 必须展示任务标注覆盖、文件与符号、豁免项、阻塞和 Implementer 输入，并将状态设为 `WAITING_FOR_ANNOTATOR_APPROVAL`。只有用户明确确认当前 Annotator attempt，才允许创建 Implementer。
+
+确认与具体阶段和 attempt 绑定。沉默、无关回复、已知晓角色完成或先前 attempt 的确认都不能授权下一阶段。用户要求修改时，必须创建新的职能 attempt，并在新结果完成后重新总结和确认。
+
 ## 架构与执行流程
 
 ### 执行架构
@@ -75,12 +85,22 @@ attempt: A1
 flowchart TD
     U["用户提交 Requirement-ID 和需求"] --> O["Orchestrator 主 Agent"]
     O --> P["新 Planner Agent"]
-    P --> PH["Planner Handoff"]
-    PH --> A["新 Annotator Agent"]
-    A --> AH["Annotator Handoff"]
-    AH --> I1["新 Implementer T001/A1"]
-    AH --> I2["新 Implementer T002/A1"]
-    AH --> I3["新 Implementer T003/A1"]
+    P --> PH["Planner Handoff COMPLETE"]
+    PH --> PS["Orchestrator 展示 Planner 总结"]
+    PS --> PC{"用户确认 Planner attempt？"}
+    PC -->|"要求修改"| P2["新 Planner attempt"]
+    P2 --> PH
+    PC -->|"明确确认"| PA["记录 Planner 审批"]
+    PA --> A["新 Annotator Agent"]
+    A --> AH["Annotator Handoff COMPLETE"]
+    AH --> AS["Orchestrator 展示 Annotator 总结"]
+    AS --> AC{"用户确认 Annotator attempt？"}
+    AC -->|"要求修改"| A2["新 Annotator attempt"]
+    A2 --> AH
+    AC -->|"明确确认"| AA["记录 Annotator 审批"]
+    AA --> I1["新 Implementer T001/A1"]
+    AA --> I2["新 Implementer T002/A1"]
+    AA --> I3["新 Implementer T003/A1"]
     I1 --> IH["Implementer Handoffs"]
     I2 --> IH
     I3 --> IH
@@ -112,10 +132,33 @@ sequenceDiagram
 
     User->>O: Requirement-ID + 需求 + 必要约束
     O->>O: 初始化工作区并保存原始需求
-    O->>P: requirement_id + role=planner + attempt
-    P-->>O: Planner Handoff
-    O->>A: requirement_id + role=annotator + attempt
-    A-->>O: Annotator Handoff
+    O->>P: requirement_id + role=planner + attempt=A1
+    P-->>O: Planner Handoff COMPLETE
+    O-->>User: Planner 结构化总结 + 明确确认请求
+
+    alt 用户要求修改
+        User->>O: 修改意见
+        O->>P: 新 Planner attempt
+        P-->>O: 新 Planner Handoff
+        O-->>User: 新总结 + 再次确认请求
+    else 用户明确确认
+        User->>O: 确认 Planner attempt
+        O->>O: 追加 USER-APPROVALS.md
+    end
+
+    O->>A: requirement_id + role=annotator + attempt=A1
+    A-->>O: Annotator Handoff COMPLETE
+    O-->>User: Annotator 结构化总结 + 明确确认请求
+
+    alt 用户要求修改
+        User->>O: 补充或修正标注要求
+        O->>A: 新 Annotator attempt
+        A-->>O: 新 Annotator Handoff
+        O-->>User: 新总结 + 再次确认请求
+    else 用户明确确认
+        User->>O: 确认 Annotator attempt
+        O->>O: 追加 USER-APPROVALS.md
+    end
 
     par 独立任务可并行
         O->>I: T001 + A1
@@ -243,13 +286,35 @@ python .\install.py --user --force
 保持现有 API 响应格式兼容，并增加必要的测试和指标。
 ~~~
 
+#### 必需的人工确认
+
+Planner 完成后，Orchestrator 会展示规划总结并暂停。用户可以确认当前 attempt：
+
+~~~text
+确认 Planner A1，可以进入源码标注阶段。
+~~~
+
+也可以提出修改：
+
+~~~text
+暂不确认。请增加缓存容量上限，并把降级行为加入验收标准。
+~~~
+
+Annotator 完成后，Orchestrator 会再次展示源码覆盖总结并暂停：
+
+~~~text
+确认 Annotator A1，可以开始实现。
+~~~
+
+只有这两次确认均已绑定到对应 attempt 并写入审批日志，Implementer 才能启动。
+
 #### 继续需求
 
 ~~~text
 使用 $annocode-feature-orchestrator 继续需求 user-profile-cache。
 ~~~
 
-Orchestrator 会读取最新 handoff，判断下一职能，并创建对应 Agent。
+Orchestrator 会读取最新 handoff 和 `USER-APPROVALS.md`，判断应展示总结、等待确认还是创建下一职能。已有 handoff 不能代替用户确认。
 
 ### 手动创建职能 Agent
 
@@ -295,6 +360,8 @@ Orchestrator 会读取最新 handoff，判断下一职能，并创建对应 Agen
 使用 $annocode-feature-orchestrator 继续需求 user-profile-cache。
 ~~~
 
+手动运行 Planner 或 Annotator 也不能跳过人工确认。Orchestrator 仍会先展示对应总结，并等待用户明确批准该 attempt。
+
 ### Implementer 并行执行
 
 Planner 为每个任务生成稳定 Task-ID，并定义目标、依赖、Read set、Write set、接口契约、验收标准映射和测试代码要求。
@@ -328,6 +395,7 @@ Planner 为每个任务生成稳定 Task-ID，并定义目标、依赖、Read se
         ├── MANIFEST.md
         ├── REQUEST.md
         ├── PROTOCOL.md
+        ├── USER-APPROVALS.md
         ├── 10-plan.md
         ├── 20-task-board.md
         ├── 30-annotations.md
@@ -348,6 +416,18 @@ Planner 为每个任务生成稳定 Task-ID，并定义目标、依赖、Read se
 ~~~
 
 用户通常不需要直接编辑这些文件。它们是职能 Agent 之间的持久通信协议。
+
+### 人工确认审计
+
+`USER-APPROVALS.md` 是 Orchestrator 所有的追加式审计日志。每条记录包含阶段、attempt、UTC 时间、用户原始决定文本、决定类型和被授权的下一角色。
+
+支持的决定包括：
+
+- `APPROVED`：批准当前 attempt，可以进入下一阶段；
+- `REVISION_REQUESTED`：要求修改，创建同职能的新 attempt；
+- `REJECTED`：拒绝当前方案，不授权下一阶段。
+
+旧记录不得覆盖或删除。Planner 的确认只能授权 Annotator，Annotator 的确认只能授权 Implementer；确认不能跨 attempt 复用。
 
 ### 源码标注
 
@@ -386,19 +466,27 @@ T002 / Implementer / A2 -> REWORK
 
 返工 handoff 说明失败原因、复现证据、允许修改范围、新 attempt 和必须补充的完成证据。
 
+如果返工被路由到 Planner 或 Annotator，新 attempt 完成后必须再次向用户展示总结并取得人工确认。实现层面的 Implementer 返工默认按任务路由，不重复要求 Planner 或 Annotator 确认，除非计划或源码覆盖范围发生变化。
+
 ### 完成条件
 
 一个需求只有在以下条件全部满足时才完成：
 
 - 原始需求已保存。
 - Planner handoff 为 COMPLETE。
+- `USER-APPROVALS.md` 中存在对应 Planner attempt 的 `APPROVED` 记录。
 - Annotator handoff 为 COMPLETE。
+- `USER-APPROVALS.md` 中存在对应 Annotator attempt 的 `APPROVED` 记录。
 - 所有必需 Implementer 任务具有 READY_FOR_INTEGRATION handoff。
 - Integration handoff 为 READY_FOR_TEST。
 - Test handoff 为 TESTS_COMPLETE。
 - Acceptance verdict 为 PASS。
 - 临时 ANNOCODE-CHANGE 标注已清理。
 - Orchestrator 已生成最终用户摘要。
+
+### 完整交互示例
+
+仓库根目录的 [example.md](./example.md) 使用“按筛选条件导出评论 CSV”需求，逐步展示用户输入、Planner/Annotator 强制确认、内部文件交接、Implementer 执行、测试、验收、返工和最终审计结果。
 
 ## 工具与项目集成
 
@@ -430,6 +518,7 @@ phase 可选值为 init、plan 和 final。
 .
 ├── .gitignore
 ├── README.md
+├── example.md
 ├── VERSION
 ├── install.py
 ├── skills/
@@ -450,4 +539,11 @@ phase 可选值为 init、plan 和 final。
 
 ## 版本
 
-当前版本：**1.0.0**
+当前版本：**1.1.0**
+
+### 1.1.0
+
+- Planner 完成后强制展示结构化总结并等待用户确认。
+- Annotator 完成后强制展示源码覆盖总结并等待用户确认。
+- 新增按阶段和 attempt 记录决定的 `USER-APPROVALS.md` 追加式审计日志。
+- 新增 [example.md](./example.md)，展示完整人机交互、内部交接、返工和验收过程。

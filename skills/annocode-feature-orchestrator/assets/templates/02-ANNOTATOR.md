@@ -11,3 +11,7 @@
 ## Exemptions
 ## Blockers
 ## Implementer inputs
+
+## Orchestrator user-summary inputs
+
+Provide concise facts for the mandatory user confirmation summary. Do not mark or infer user approval here.

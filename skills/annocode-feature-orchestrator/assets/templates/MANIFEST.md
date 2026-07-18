@@ -7,5 +7,8 @@
 - Current phase: INIT
 - Expected next role: planner
 - Latest accepted attempt: none
+- Awaiting user confirmation: none
+- Planner approved attempt: none
+- Annotator approved attempt: none
 
 Coordinator-only state file. Role Agents must not edit it.

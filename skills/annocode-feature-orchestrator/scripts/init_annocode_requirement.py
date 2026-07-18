@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 MAIN_FILES = [
-    "README.md", "MANIFEST.md", "REQUEST.md", "PROTOCOL.md", "10-plan.md",
+    "README.md", "MANIFEST.md", "REQUEST.md", "PROTOCOL.md", "USER-APPROVALS.md", "10-plan.md",
     "20-task-board.md", "30-annotations.md", "40-integration.md",
     "50-test-report.md", "60-acceptance.md", "70-final.md",
 ]
