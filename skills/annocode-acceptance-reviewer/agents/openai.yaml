@@ -1,0 +1,4 @@
+interface:
+  display_name: "Annocode 独立验收 Agent"
+  short_description: "在干净上下文中依据原始需求与测试证据完成最终验收判断"
+  default_prompt: "使用 $annocode-acceptance-reviewer 验收需求 <requirement-id>。"

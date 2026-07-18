@@ -1,0 +1,4 @@
+interface:
+  display_name: "Annocode 独立标注 Agent"
+  short_description: "在干净上下文中标注或清理指定需求的源码改动定位信息"
+  default_prompt: "使用 $annocode-source-annotator 处理需求 <requirement-id>。"

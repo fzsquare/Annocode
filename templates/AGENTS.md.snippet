@@ -1,0 +1,12 @@
+# Clean-Context Multi-Agent Workflow
+
+For complex feature work:
+
+1. Require a user-specified immutable Requirement-ID.
+2. Use $annocode-feature-orchestrator in the parent task only for routing and summaries.
+3. Run planner, annotator, implementer, integration, tester and acceptance as separate clean-context Agents.
+4. Do not fork parent conversation history into role Agents; pass only Requirement-ID, Role, Task-ID when applicable, and Attempt.
+5. Persist all role communication in the requirement workspace through role-owned Markdown handoffs.
+6. Never substitute a missing role by performing its work in the parent Agent.
+7. Each Implementer handles one task and attempt with an exclusive Write set.
+8. Only an independent Acceptance Reviewer may issue final PASS.

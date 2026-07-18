@@ -1,0 +1,4 @@
+interface:
+  display_name: "Annocode 独立集成 Agent"
+  short_description: "在干净上下文中检查实现交接与跨任务契约并准备测试候选"
+  default_prompt: "使用 $annocode-integration-coordinator 处理需求 <requirement-id>。"

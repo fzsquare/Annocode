@@ -1,0 +1,4 @@
+interface:
+  display_name: "Annocode 独立测试 Agent"
+  short_description: "在干净上下文中独立执行指定需求的测试并发布测试证据"
+  default_prompt: "使用 $annocode-test-runner 测试需求 <requirement-id>。"

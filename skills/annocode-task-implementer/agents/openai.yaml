@@ -1,0 +1,4 @@
+interface:
+  display_name: "Annocode 独立实现 Agent"
+  short_description: "在干净上下文中完成指定需求的单个任务并发布实现交接"
+  default_prompt: "使用 $annocode-task-implementer 处理需求 <requirement-id> 的任务 <task-id>。"

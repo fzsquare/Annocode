@@ -1,0 +1,4 @@
+interface:
+  display_name: "Annocode 干净上下文编排器"
+  short_description: "按用户需求标识调度独立职能 Agent 与文件交接的完整开发流程"
+  default_prompt: "使用 $annocode-feature-orchestrator 开始或继续需求 <requirement-id>。"
